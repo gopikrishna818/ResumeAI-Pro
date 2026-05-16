@@ -179,6 +179,7 @@ async def get_consensus_analysis(resume_text: str, jd_text: str):
 # --- Routes ---
 
 @app.post("/api/screen")
+@app.post("/screen")  # Alias for Vercel pathing
 async def screen_resumes(
     jd: str = Form(...),
     files: List[UploadFile] = File(...)
@@ -186,7 +187,6 @@ async def screen_resumes(
     results = []
     jd_clean = clean_text(jd)
 
-    # Process files concurrently for faster results
     async def process_file(file):
         content = await file.read()
         if file.filename.lower().endswith('.pdf'):
@@ -197,9 +197,24 @@ async def screen_resumes(
         text_clean = clean_text(text)
         if not text_clean: return None
 
-        return await get_consensus_analysis(text_clean, jd_clean)
+        # Add 8s timeout to prevent Vercel 10s kill
+        try:
+            return await asyncio.wait_for(get_consensus_analysis(text_clean, jd_clean), timeout=8.0)
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout for {file.filename}, using fallback")
+            # Return a simple fallback directly to avoid another nested call
+            score = calculate_score_tfidf(text_clean, jd_clean)
+            return {
+                "parsing": {"name": file.filename, "contact": "N/A", "education": "N/A", "top_experience": "N/A"},
+                "score": round(score, 1),
+                "ats_score": 50.0,
+                "matched_skills": [],
+                "missing_skills": [],
+                "bias_check": "Timeout",
+                "summary": "AI took too long. Showing basic similarity analysis.",
+                "method": "Timeout Fallback"
+            }
 
-    # Note: For many files, we might want to limit concurrency
     file_tasks = [process_file(f) for f in files]
     analyses = await asyncio.gather(*file_tasks)
 
@@ -214,6 +229,7 @@ async def screen_resumes(
     return {"results": results}
 
 @app.post("/api/predict-fit")
+@app.post("/predict-fit")  # Alias for Vercel pathing
 async def predict_fit(
     jd: str = Form(...),
     file: UploadFile = File(...)
@@ -229,7 +245,22 @@ async def predict_fit(
     if not text_clean:
         return JSONResponse({"error": "Empty resume file"}, status_code=400)
 
-    analysis = await get_consensus_analysis(text_clean, clean_text(jd))
+    try:
+        analysis = await asyncio.wait_for(get_consensus_analysis(text_clean, clean_text(jd)), timeout=8.5)
+    except asyncio.TimeoutError:
+        score = calculate_score_tfidf(text_clean, clean_text(jd))
+        analysis = {
+            "parsing": {"name": file.filename, "contact": "N/A", "education": "N/A", "top_experience": "N/A"},
+            "score": round(score, 1),
+            "ats_score": 50.0,
+            "matched_skills": [],
+            "missing_skills": [],
+            "bias_check": "Timeout",
+            "summary": "The AI analysis timed out. Falling back to basic keyword similarity.",
+            "method": "Timeout Fallback",
+            "improvement_tips": ["Try a shorter job description or check back later."]
+        }
+    
     if not analysis:
         return JSONResponse({"error": "Analysis failed"}, status_code=500)
     
