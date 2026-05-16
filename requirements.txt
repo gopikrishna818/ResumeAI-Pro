@@ -3,9 +3,6 @@ uvicorn
 python-multipart
 pypdf2
 scikit-learn
-nltk
-spacy
 python-dotenv
 google-generativeai
 groq
-jinja2
