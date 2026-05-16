@@ -7,7 +7,7 @@ import io
 from typing import List, Optional, Dict
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 import PyPDF2
 import google.generativeai as genai
 from groq import Groq
@@ -179,6 +179,14 @@ async def get_consensus_analysis(resume_text: str, jd_text: str):
     }
 
 # --- Routes ---
+
+@app.get("/")
+async def get_index():
+    try:
+        with open("index.html", "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
+    except Exception:
+        return JSONResponse({"error": "Frontend not found"}, status_code=404)
 
 @app.post("/api/screen")
 @app.post("/screen")  # Alias for Vercel pathing
