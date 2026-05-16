@@ -181,7 +181,7 @@
                     <label class="panel-label">Batch Resumes</label>
                     <div class="drop-zone" onclick="document.getElementById('r-file-input').click()">
                         <input type="file" id="r-file-input" multiple accept=".pdf,.txt" style="display: none;">
-                        <span style="font-size: 40px; margin-bottom: 15px;">📦</span>
+                        <span style="font-size: 40px; margin-bottom: 15px;">📄</span>
                         <p style="font-weight: 700; color: var(--text-dark);">Click to Upload Resumes</p>
                         <p id="r-file-count" style="font-size: 11px; color: var(--text-dim); margin-top: 5px;">0 Files Selected</p>
                     </div>
@@ -189,7 +189,7 @@
             </div>
             
             <button class="btn-action glass-panel" id="r-screen-btn">
-                <span>✨ START INTELLIGENT SCREENING</span>
+                <span>START INTELLIGENT SCREENING</span>
             </button>
 
             <div class="results-section" id="r-results-area">
@@ -220,7 +220,7 @@
             </div>
             
             <button class="btn-action glass-panel" id="c-predict-btn">
-                <span>🚀 PREDICT MY FIT</span>
+                <span>PREDICT MY FIT</span>
             </button>
 
             <div class="results-section" id="c-results-area">
@@ -295,11 +295,16 @@
             if(!jd || rFileInput.files.length === 0) return alert("Please provide JD and Resumes.");
             
             const loader = document.getElementById('main-loader');
+            const loaderText = document.getElementById('loader-text');
             loader.style.display = 'flex';
+            loaderText.innerText = "UPLOADING & PARSING DOCUMENTS...";
             
             const formData = new FormData();
             formData.append('jd', jd);
             Array.from(rFileInput.files).forEach(f => formData.append('files', f));
+
+            // Small delay to show the first step
+            setTimeout(() => { loaderText.innerText = "EVALUATING WITH AI CONSENSUS..."; }, 1500);
 
             try {
                 const res = await fetch('/api/screen', { method: 'POST', body: formData });
@@ -350,10 +355,15 @@
             if(!jd || !file) return alert("Please provide JD and Resume.");
 
             const loader = document.getElementById('main-loader');
+            const loaderText = document.getElementById('loader-text');
             loader.style.display = 'flex';
+            loaderText.innerText = "PARSING YOUR RESUME...";
+
             const formData = new FormData();
             formData.append('jd', jd);
             formData.append('file', file);
+
+            setTimeout(() => { loaderText.innerText = "PREDICTING JOB FIT VIA AI..."; }, 1500);
 
             try {
                 const res = await fetch('/api/predict-fit', { method: 'POST', body: formData });
