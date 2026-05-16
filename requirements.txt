@@ -2,7 +2,6 @@ fastapi
 uvicorn
 python-multipart
 pypdf2
-scikit-learn
 python-dotenv
 google-generativeai
 groq

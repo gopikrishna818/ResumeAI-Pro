@@ -100,14 +100,16 @@ async def call_gemini_analysis(prompt: str) -> Optional[Dict]:
         logger.error(f"Gemini analysis error: {e}")
         return None
 
-def calculate_score_tfidf(resume_text: str, jd_text: str) -> float:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity
+def calculate_score_lightweight(resume_text: str, jd_text: str) -> float:
+    """Lightweight keyword similarity for fallback (no heavy libraries)."""
     try:
-        vectorizer = TfidfVectorizer(stop_words='english')
-        tfidf_matrix = vectorizer.fit_transform([resume_text, jd_text])
-        similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
-        return float(similarity[0][0]) * 100
+        r_words = set(re.findall(r'\w+', resume_text.lower()))
+        j_words = set(re.findall(r'\w+', jd_text.lower()))
+        if not j_words: return 0.0
+        intersection = r_words.intersection(j_words)
+        # Weighting: 1.5x score for matching words to avoid too low scores
+        score = (len(intersection) / len(j_words)) * 150
+        return min(round(score, 1), 95.0)
     except Exception:
         return 0.0
 
@@ -163,7 +165,7 @@ async def get_consensus_analysis(resume_text: str, jd_text: str):
 
     # --- FALLBACK: TF-IDF if AI is offline/missing keys ---
     logger.warning("AI models unavailable. Falling back to TF-IDF.")
-    fallback_score = calculate_score_tfidf(resume_text, jd_text)
+    fallback_score = calculate_score_lightweight(resume_text, jd_text)
     return {
         "parsing": {"name": "Candidate", "contact": "N/A", "education": "N/A", "top_experience": "N/A"},
         "score": round(fallback_score, 1),
@@ -203,7 +205,7 @@ async def screen_resumes(
         except asyncio.TimeoutError:
             logger.warning(f"Timeout for {file.filename}, using fallback")
             # Return a simple fallback directly to avoid another nested call
-            score = calculate_score_tfidf(text_clean, jd_clean)
+            score = calculate_score_lightweight(text_clean, jd_clean)
             return {
                 "parsing": {"name": file.filename, "contact": "N/A", "education": "N/A", "top_experience": "N/A"},
                 "score": round(score, 1),
@@ -248,7 +250,7 @@ async def predict_fit(
     try:
         analysis = await asyncio.wait_for(get_consensus_analysis(text_clean, clean_text(jd)), timeout=8.5)
     except asyncio.TimeoutError:
-        score = calculate_score_tfidf(text_clean, clean_text(jd))
+        score = calculate_score_lightweight(text_clean, clean_text(jd))
         analysis = {
             "parsing": {"name": file.filename, "contact": "N/A", "education": "N/A", "top_experience": "N/A"},
             "score": round(score, 1),
