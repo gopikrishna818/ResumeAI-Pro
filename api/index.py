@@ -1,15 +1,14 @@
 import os
 import json
 import logging
-from typing import List
+import asyncio
+import re
+import io
+from typing import List, Optional, Dict
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import PyPDF2
-import io
-import re
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
 from groq import Groq
 from dotenv import load_dotenv
@@ -21,7 +20,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = FastAPI(title="ResumeAI Pro - Advanced Engine")
 
 # Enable CORS
 app.add_middleware(
@@ -34,7 +33,6 @@ app.add_middleware(
 
 # --- AI Clients Setup ---
 
-# 1. Groq Setup
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 groq_client = None
 if GROQ_API_KEY:
@@ -43,7 +41,6 @@ if GROQ_API_KEY:
     except Exception as e:
         logger.error(f"Failed to init Groq: {e}")
 
-# 2. Gemini Setup
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 gemini_model = None
 if GEMINI_API_KEY:
@@ -73,57 +70,90 @@ def clean_text(text: str) -> str:
     text = text.strip()
     return text
 
-def calculate_score_tfidf(resume_text: str, jd_text: str) -> float:
+async def call_groq_analysis(prompt: str) -> Optional[Dict]:
+    if not groq_client: return None
     try:
-        vectorizer = TfidfVectorizer(stop_words='english')
-        tfidf_matrix = vectorizer.fit_transform([resume_text, jd_text])
-        similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
-        return float(similarity[0][0]) * 100
-    except Exception:
-        return 0.0
-
-async def get_ai_analysis(resume_text: str, jd_text: str):
-    prompt = f"""
-    You are an expert recruiter. Analyze the following resume against the job description.
-    
-    JOB DESCRIPTION:
-    {jd_text[:2000]}
-    
-    RESUME:
-    {resume_text[:4000]}
-    
-    Return a JSON object with:
-    1. "score": (0-100 based on fit)
-    2. "matched_skills": [list of 5 key skills matched]
-    3. "missing_skills": [list of 3 key gaps]
-    4. "summary": (2 sentence professional assessment)
-    
-    Return ONLY raw JSON, no markdown formatting.
-    """
-
-    # Try Groq first
-    if groq_client:
-        try:
-            chat_completion = groq_client.chat.completions.create(
+        loop = asyncio.get_event_loop()
+        # Use run_in_executor for synchronous Groq client
+        chat_completion = await loop.run_in_executor(
+            None, 
+            lambda: groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 model="llama-3.3-70b-versatile",
                 response_format={"type": "json_object"}
             )
-            return json.loads(chat_completion.choices[0].message.content)
-        except Exception as e:
-            logger.error(f"Groq error: {e}")
+        )
+        return json.loads(chat_completion.choices[0].message.content)
+    except Exception as e:
+        logger.error(f"Groq analysis error: {e}")
+        return None
 
-    # Fallback to Gemini
-    if gemini_model:
-        try:
-            response = gemini_model.generate_content(prompt)
-            match = re.search(r'\{.*\}', response.text, re.DOTALL)
-            if match:
-                return json.loads(match.group())
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
+async def call_gemini_analysis(prompt: str) -> Optional[Dict]:
+    if not gemini_model: return None
+    try:
+        response = await asyncio.to_thread(gemini_model.generate_content, prompt)
+        match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        return None
+    except Exception as e:
+        logger.error(f"Gemini analysis error: {e}")
+        return None
 
-    return None
+async def get_consensus_analysis(resume_text: str, jd_text: str):
+    prompt = f"""
+    You are an AI Recruitment Engine (ResumeAI Pro). Analyze the following resume against the job description with high precision.
+    
+    JOB DESCRIPTION:
+    {jd_text[:2500]}
+    
+    RESUME:
+    {resume_text[:5000]}
+    
+    Return a STRICT JSON object with the following structure:
+    {{
+      "parsing": {{
+        "name": "full name",
+        "contact": "email/phone",
+        "education": "highest degree and institution",
+        "top_experience": "most relevant last role"
+      }},
+      "score": (0-100 based on exact skills, seniority, and industry fit),
+      "ats_score": (0-100 based on formatting, keyword density, and readability for machines),
+      "matched_skills": ["skill1", "skill2", "skill3", "skill4", "skill5"],
+      "missing_skills": ["gap1", "gap2", "gap3"],
+      "bias_check": "Flag any discriminatory language in JD or Resume, or 'Clean'",
+      "improvement_tips": ["tip1", "tip2", "tip3"],
+      "summary": "2 sentence expert assessment"
+    }}
+    
+    Return ONLY raw JSON.
+    """
+
+    # Run in parallel
+    results = await asyncio.gather(
+        call_groq_analysis(prompt),
+        call_gemini_analysis(prompt),
+        return_exceptions=True
+    )
+
+    valid_results = [r for r in results if isinstance(r, dict) and r]
+    
+    if not valid_results:
+        return None
+
+    # Merge / Consensus logic
+    # We average the scores for higher accuracy
+    avg_score = sum(r.get("score", 0) for r in valid_results) / len(valid_results)
+    avg_ats = sum(r.get("ats_score", 0) for r in valid_results) / len(valid_results)
+    
+    # Use the first valid result for structured data but override scores
+    final_data = valid_results[0].copy()
+    final_data["score"] = round(avg_score, 1)
+    final_data["ats_score"] = round(avg_ats, 1)
+    final_data["method"] = f"Consensus ({len(valid_results)} models)"
+    
+    return final_data
 
 # --- Routes ---
 
@@ -135,7 +165,8 @@ async def screen_resumes(
     results = []
     jd_clean = clean_text(jd)
 
-    for file in files:
+    # Process files concurrently for faster results
+    async def process_file(file):
         content = await file.read()
         if file.filename.lower().endswith('.pdf'):
             text = extract_text_from_pdf(content)
@@ -143,35 +174,31 @@ async def screen_resumes(
             text = content.decode('utf-8', errors='ignore')
         
         text_clean = clean_text(text)
-        
-        if not text_clean:
-            continue
+        if not text_clean: return None
 
-        ai_data = await get_ai_analysis(text_clean, jd_clean)
-        
-        if ai_data:
-            result = {
-                "name": file.filename,
-                "score": ai_data.get("score", 0),
-                "matched": ai_data.get("matched_skills", []),
-                "missing": ai_data.get("missing_skills", []),
-                "analysis": ai_data.get("summary", ""),
-                "method": "Groq/Gemini AI"
-            }
-        else:
-            score = calculate_score_tfidf(text_clean, jd_clean)
-            result = {
-                "name": file.filename,
-                "score": round(score, 1),
-                "matched": [],
-                "missing": [],
-                "analysis": "TF-IDF similarity analysis (AI APIs unavailable).",
-                "method": "TF-IDF"
-            }
-        
-        results.append(result)
+        return await get_consensus_analysis(text_clean, jd_clean)
+
+    # Note: For many files, we might want to limit concurrency
+    file_tasks = [process_file(f) for f in files]
+    analyses = await asyncio.gather(*file_tasks)
+
+    for i, analysis in enumerate(analyses):
+        if analysis:
+            results.append({
+                "name": files[i].filename,
+                **analysis
+            })
 
     results.sort(key=lambda x: x['score'], reverse=True)
     return {"results": results}
 
-# No @app.get("/") because Vercel serves index.html statically from the root
+@app.post("/api/predict-fit")
+async def predict_fit(
+    jd: str = Form(...),
+    resume_text: str = Form(...)
+):
+    """Instant fit predictor for a single JD and single resume text."""
+    analysis = await get_consensus_analysis(clean_text(resume_text), clean_text(jd))
+    if not analysis:
+        return JSONResponse({"error": "Analysis failed"}, status_code=500)
+    return analysis
