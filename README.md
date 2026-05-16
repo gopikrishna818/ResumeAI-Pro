@@ -48,6 +48,27 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser.
 
 ---
 
+## 🛠️ How I Built This
+
+### 1. The Vision: Apple-Inspired Design
+I wanted to create more than just a tool; I wanted to build an **experience**. Inspired by Apple's minimalist aesthetic, I implemented:
+- **Glassmorphism**: Using high-blur overlays and subtle borders to create depth.
+- **3D Interaction**: Integrated **Three.js** to render a live, interactive icosahedron background that responds to user presence.
+- **Fluid Motion**: Used **GSAP** (GreenSock) to ensure every button click and result card feels smooth and premium.
+
+### 2. The Engine: Ultra-Fast AI
+Speed is critical in recruitment. I chose **FastAPI** for its high performance and integrated two powerful AI layers:
+- **Groq (Primary)**: Using the Llama 3.3 70B model via Groq’s LPU, I achieved near-instant screening results.
+- **Gemini (Fallback)**: Integrated Google’s Gemini 1.5 Flash as a robust fallback to ensure the system is always intelligent.
+
+### 3. The Logic: Precision Ranking
+The core logic involves three main stages:
+- **Deep Parsing**: I used `PyPDF2` to extract clean text from complex resume layouts.
+- **NLP Analysis**: The AI analyzes the job description against the resume to identify hidden skills and critical gaps.
+- **Scoring Algorithm**: A custom-weighted scoring system that evaluates not just keywords, but the overall professional fit.
+
+---
+
 ## 🎨 Tech Stack
 
 - **Frontend**: HTML5, Vanilla CSS, JavaScript.
