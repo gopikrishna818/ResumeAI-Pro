@@ -66,4 +66,4 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser.
 
 ---
 
-Built with ❤️ by the Antigravity Team
+Built with ❤️ by me
