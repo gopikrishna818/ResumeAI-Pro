@@ -214,15 +214,20 @@
                     </div>
                     
                     <div class="input-panel glass-panel">
-                        <label class="panel-label">Job Description</label>
-                        <textarea id="r-jd-input" placeholder="Paste the target job requirements..."></textarea>
-                        
-                        <label class="panel-label">Batch Resumes</label>
-                        <div class="drop-zone" onclick="document.getElementById('r-file-input').click()">
-                            <input type="file" id="r-file-input" multiple accept=".pdf,.txt" style="display: none;">
-                            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                            <p style="font-weight: 700; color: white;">Drag or Click to Upload</p>
-                            <p id="r-file-count" style="font-size: 12px; color: var(--text-dim); margin-top: 5px;">0 Resumes Selected</p>
+                        <div style="display: flex; gap: 24px; margin-bottom: 20px;">
+                            <div style="flex: 1.2;">
+                                <label class="panel-label">Job Description</label>
+                                <textarea id="r-jd-input" placeholder="Paste the target job requirements..." style="margin-bottom: 0; height: 200px;"></textarea>
+                            </div>
+                            <div style="flex: 1;">
+                                <label class="panel-label">Batch Resumes</label>
+                                <div class="drop-zone" onclick="document.getElementById('r-file-input').click()" style="height: 200px;">
+                                    <input type="file" id="r-file-input" multiple accept=".pdf,.txt" style="display: none;">
+                                    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                                    <p style="font-weight: 700; color: white;">Upload Resumes</p>
+                                    <p id="r-file-count" style="font-size: 11px; color: var(--text-dim); margin-top: 5px;">0 Selected</p>
+                                </div>
+                            </div>
                         </div>
                         
                         <button class="btn-action" id="r-screen-btn">
@@ -254,15 +259,20 @@
                     </div>
 
                     <div class="input-panel glass-panel">
-                        <label class="panel-label">Target Job</label>
-                        <textarea id="c-jd-input" placeholder="Paste the JD of your dream job..." style="height: 120px;"></textarea>
-                        
-                        <label class="panel-label">Your Resume</label>
-                        <div class="drop-zone" onclick="document.getElementById('c-file-input').click()" style="height: 150px;">
-                            <input type="file" id="c-file-input" accept=".pdf,.txt" style="display: none;">
-                            <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
-                            <p style="font-weight: 700; color: white;">Upload Resume File</p>
-                            <p id="c-file-name" style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">PDF or TXT</p>
+                        <div style="display: flex; gap: 24px; margin-bottom: 20px;">
+                            <div style="flex: 1.2;">
+                                <label class="panel-label">Target Job</label>
+                                <textarea id="c-jd-input" placeholder="Paste the JD of your dream job..." style="height: 180px; margin-bottom: 0;"></textarea>
+                            </div>
+                            <div style="flex: 1;">
+                                <label class="panel-label">Your Resume</label>
+                                <div class="drop-zone" onclick="document.getElementById('c-file-input').click()" style="height: 180px;">
+                                    <input type="file" id="c-file-input" accept=".pdf,.txt" style="display: none;">
+                                    <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+                                    <p style="font-weight: 700; color: white;">Upload Resume</p>
+                                    <p id="c-file-name" style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">PDF or TXT</p>
+                                </div>
+                            </div>
                         </div>
                         
                         <button class="btn-action" id="c-predict-btn">
