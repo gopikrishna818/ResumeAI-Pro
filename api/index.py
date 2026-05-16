@@ -100,6 +100,17 @@ async def call_gemini_analysis(prompt: str) -> Optional[Dict]:
         logger.error(f"Gemini analysis error: {e}")
         return None
 
+def calculate_score_tfidf(resume_text: str, jd_text: str) -> float:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    try:
+        vectorizer = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = vectorizer.fit_transform([resume_text, jd_text])
+        similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
+        return float(similarity[0][0]) * 100
+    except Exception:
+        return 0.0
+
 async def get_consensus_analysis(resume_text: str, jd_text: str):
     prompt = f"""
     You are an AI Recruitment Engine (ResumeAI Pro). Analyze the following resume against the job description with high precision.
@@ -130,7 +141,7 @@ async def get_consensus_analysis(resume_text: str, jd_text: str):
     Return ONLY raw JSON.
     """
 
-    # Run in parallel
+    # Run AI in parallel
     results = await asyncio.gather(
         call_groq_analysis(prompt),
         call_gemini_analysis(prompt),
@@ -139,21 +150,31 @@ async def get_consensus_analysis(resume_text: str, jd_text: str):
 
     valid_results = [r for r in results if isinstance(r, dict) and r]
     
-    if not valid_results:
-        return None
+    if valid_results:
+        # Merge / Consensus logic
+        avg_score = sum(r.get("score", 0) for r in valid_results) / len(valid_results)
+        avg_ats = sum(r.get("ats_score", 0) for r in valid_results) / len(valid_results)
+        
+        final_data = valid_results[0].copy()
+        final_data["score"] = round(avg_score, 1)
+        final_data["ats_score"] = round(avg_ats, 1)
+        final_data["method"] = f"Consensus ({len(valid_results)} models)"
+        return final_data
 
-    # Merge / Consensus logic
-    # We average the scores for higher accuracy
-    avg_score = sum(r.get("score", 0) for r in valid_results) / len(valid_results)
-    avg_ats = sum(r.get("ats_score", 0) for r in valid_results) / len(valid_results)
-    
-    # Use the first valid result for structured data but override scores
-    final_data = valid_results[0].copy()
-    final_data["score"] = round(avg_score, 1)
-    final_data["ats_score"] = round(avg_ats, 1)
-    final_data["method"] = f"Consensus ({len(valid_results)} models)"
-    
-    return final_data
+    # --- FALLBACK: TF-IDF if AI is offline/missing keys ---
+    logger.warning("AI models unavailable. Falling back to TF-IDF.")
+    fallback_score = calculate_score_tfidf(resume_text, jd_text)
+    return {
+        "parsing": {"name": "Candidate", "contact": "N/A", "education": "N/A", "top_experience": "N/A"},
+        "score": round(fallback_score, 1),
+        "ats_score": 50.0,
+        "matched_skills": [],
+        "missing_skills": [],
+        "bias_check": "Clean (AI Offline)",
+        "improvement_tips": ["Connect AI API keys for deep analysis"],
+        "summary": "Basic similarity analysis (Fallback mode). AI Consensus engine is currently offline.",
+        "method": "TF-IDF Fallback"
+    }
 
 # --- Routes ---
 
