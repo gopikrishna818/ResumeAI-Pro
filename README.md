@@ -79,12 +79,6 @@ The core logic involves three main stages:
 
 ---
 
-## 📊 Deployment Guide
-
-- **Vercel/Netlify**: Deploy the frontend easily.
-- **Heroku/Render**: Deploy the FastAPI backend.
-- **Docker**: The app is structured for easy containerization.
-
 ---
 
 Built with ❤️ by me
