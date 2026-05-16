@@ -195,10 +195,22 @@ async def screen_resumes(
 @app.post("/api/predict-fit")
 async def predict_fit(
     jd: str = Form(...),
-    resume_text: str = Form(...)
+    file: UploadFile = File(...)
 ):
-    """Instant fit predictor for a single JD and single resume text."""
-    analysis = await get_consensus_analysis(clean_text(resume_text), clean_text(jd))
+    """Instant fit predictor for a single JD and an uploaded resume file."""
+    content = await file.read()
+    if file.filename.lower().endswith('.pdf'):
+        text = extract_text_from_pdf(content)
+    else:
+        text = content.decode('utf-8', errors='ignore')
+    
+    text_clean = clean_text(text)
+    if not text_clean:
+        return JSONResponse({"error": "Empty resume file"}, status_code=400)
+
+    analysis = await get_consensus_analysis(text_clean, clean_text(jd))
     if not analysis:
         return JSONResponse({"error": "Analysis failed"}, status_code=500)
+    
+    analysis["name"] = file.filename
     return analysis

@@ -171,9 +171,15 @@
             <div class="grid-layout">
                 <div class="panel">
                     <div class="panel-title">🎯 Job Fit Predictor</div>
-                    <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 12px;">Paste the job you want and your resume text.</p>
+                    <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 12px;">Paste the job you want and upload your resume file.</p>
                     <textarea id="c-jd-input" style="height: 140px; margin-bottom: 16px;" placeholder="Job Description..."></textarea>
-                    <textarea id="c-resume-input" style="height: 180px;" placeholder="Paste your resume text here..."></textarea>
+                    
+                    <div class="upload-zone" onclick="document.getElementById('c-file-input').click()" style="height: 160px; border-style: dotted;">
+                        <input type="file" id="c-file-input" accept=".pdf,.txt" style="display: none;">
+                        <span style="font-size: 30px;">📄</span>
+                        <p style="font-weight: 600; margin-top: 8px; font-size: 14px;">Upload Your Resume</p>
+                        <span id="c-file-status" style="font-size: 11px; color: var(--text-sub);">PDF or TXT only</span>
+                    </div>
                     <button class="btn-primary" id="c-predict-btn">✨ PREDICT MY FIT</button>
                 </div>
 
@@ -281,15 +287,18 @@
         }
 
         // Candidate Logic
+        const cFileInput = document.getElementById('c-file-input');
+        cFileInput.onchange = () => { if(cFileInput.files.length) document.getElementById('c-file-status').innerText = cFileInput.files[0].name; };
+
         document.getElementById('c-predict-btn').onclick = async () => {
             const jd = document.getElementById('c-jd-input').value;
-            const resume = document.getElementById('c-resume-input').value;
-            if(!jd || !resume) return alert("Paste both job and resume.");
+            const file = cFileInput.files[0];
+            if(!jd || !file) return alert("Please provide both the Job Description and your Resume file.");
 
             showLoader(true);
             const formData = new FormData();
             formData.append('jd', jd);
-            formData.append('resume_text', resume);
+            formData.append('file', file);
 
             try {
                 const res = await fetch('/api/predict-fit', { method: 'POST', body: formData });
